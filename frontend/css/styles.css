@@ -1,0 +1,263 @@
+/* ==========================================================================
+   Rahma — design tokens
+   Palette grounded in the subject: a deep, calm teal-green for trust and
+   growth, a warm sand base like paper/canvas, and a single amber accent
+   reserved for the act of giving (donation CTAs, progress bars).
+   ========================================================================== */
+:root{
+  --sand:        #F5EFE0;
+  --paper:       #FBF8EF;
+  --ink:         #23231C;
+  --ink-soft:    #5B5A4E;
+  --teal:        #1F5C4F;
+  --teal-dark:   #163F37;
+  --teal-tint:   #E4EEEA;
+  --amber:       #D98E3F;
+  --amber-dark:  #B8722B;
+  --clay:        #B5573A;
+  --line:        #E3DAC4;
+  --white:       #FFFFFF;
+
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 22px;
+
+  --font-display: 'Fraunces', 'Georgia', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-ar: 'Cairo', system-ui, sans-serif;
+
+  --header-h: 64px;
+}
+
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background: var(--sand);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+html[lang="ar"] body,
+html[lang="ar"] input,
+html[lang="ar"] textarea,
+html[lang="ar"] button{
+  font-family: var(--font-ar);
+}
+
+h1,h2{
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 .4em;
+  letter-spacing: -0.01em;
+}
+html[lang="ar"] h1, html[lang="ar"] h2{ font-family: var(--font-ar); font-weight: 700; }
+
+p{ margin: 0 0 1em; color: var(--ink-soft); line-height: 1.55; }
+
+button, input, textarea{ font-family: inherit; color: inherit; }
+
+#app{
+  display:flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ============================== TOPBAR ============================== */
+.topbar{
+  height: var(--header-h);
+  flex: 0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  z-index: 20;
+}
+.topbar__brand{ display:flex; align-items:center; gap:8px; color: var(--teal); flex: 0 0 auto; }
+.brand-mark{ display:flex; }
+.brand-name{ font-family: var(--font-display); font-size: 21px; font-weight: 700; color: var(--teal-dark); }
+
+.topbar__controls{ display:flex; align-items:center; gap: 20px; flex: 1 1 auto; justify-content: flex-end; }
+
+.radius-control{ display:flex; align-items:center; gap:8px; font-size: 13px; color: var(--ink-soft); }
+.radius-control input[type="range"]{ width: 120px; accent-color: var(--teal); }
+#radiusValue{ min-width: 46px; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }
+
+.lang-switch{ display:flex; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.lang-btn{
+  border: none; background: var(--paper); padding: 7px 11px; font-size: 13px; font-weight: 600;
+  cursor: pointer; color: var(--ink-soft); border-inline-start: 1px solid var(--line);
+}
+.lang-btn:first-child{ border-inline-start: none; }
+.lang-btn.active{ background: var(--teal); color: var(--white); }
+
+.btn{
+  display:inline-flex; align-items:center; gap:6px; justify-content:center;
+  padding: 9px 16px; border-radius: var(--radius-s); border: 1px solid transparent;
+  font-size: 14px; font-weight: 600; cursor:pointer; transition: transform .08s ease, background .15s ease;
+  white-space: nowrap;
+}
+.btn:active{ transform: scale(.97); }
+.btn--ghost{ background: var(--paper); border-color: var(--line); color: var(--teal-dark); }
+.btn--ghost:hover{ background: var(--teal-tint); }
+.btn--primary{ background: var(--amber); color: var(--white); }
+.btn--primary:hover{ background: var(--amber-dark); }
+.btn--block{ width: 100%; }
+.btn--small{ padding: 6px 11px; font-size: 12.5px; }
+
+.mobile-only{ display:none; }
+
+/* ============================== LAYOUT ============================== */
+.layout{
+  flex: 1 1 auto;
+  display:flex;
+  min-height: 0;
+}
+
+.panel{
+  width: 400px;
+  flex: 0 0 auto;
+  background: var(--paper);
+  border-inline-end: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 22px 20px 40px;
+}
+.panel__intro h1{ font-size: 26px; color: var(--teal-dark); }
+.panel__intro p{ font-size: 14.5px; }
+
+.tabs{ display:flex; gap: 4px; margin: 18px 0 14px; background: var(--sand); padding:4px; border-radius: var(--radius-s); }
+.tab{
+  flex:1; border:none; background: transparent; padding: 8px 10px; border-radius: 6px;
+  font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor:pointer;
+}
+.tab.active{ background: var(--white); color: var(--teal-dark); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+
+.status-msg{
+  font-size: 13px; color: var(--ink-soft); background: var(--teal-tint); border-radius: var(--radius-s);
+  padding: 10px 12px; margin-bottom: 14px;
+}
+
+/* -------- Cards -------- */
+.card-list{ display:flex; flex-direction: column; gap: 12px; }
+
+.rcard{
+  display:flex; gap: 12px; background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius-m); padding: 12px; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease;
+}
+.rcard:hover{ border-color: var(--teal); box-shadow: 0 3px 10px rgba(31,92,79,.08); }
+.rcard.active-marker{ border-color: var(--amber); box-shadow: 0 3px 10px rgba(217,142,63,.18); }
+
+.rcard__photo{
+  width: 56px; height: 56px; border-radius: 50%; flex: 0 0 auto; object-fit: cover;
+  background: var(--teal-tint); border: 1px solid var(--line);
+}
+.rcard__body{ flex: 1 1 auto; min-width: 0; }
+.rcard__top{ display:flex; align-items:baseline; justify-content: space-between; gap: 8px; }
+.rcard__name{ font-weight: 700; font-size: 15px; color: var(--ink); }
+.rcard__distance{ font-size: 12px; color: var(--teal-dark); font-weight: 600; white-space: nowrap; }
+.rcard__meta{ font-size: 12.5px; color: var(--ink-soft); margin: 2px 0 6px; }
+
+.progress{ height: 6px; border-radius: 4px; background: var(--sand); overflow: hidden; margin-bottom: 8px; }
+.progress__fill{ height: 100%; background: var(--amber); border-radius: 4px; }
+
+.rcard__actions{ display:flex; gap: 6px; flex-wrap: wrap; }
+
+/* ============================== MAP ============================== */
+.map-wrap{ flex: 1 1 auto; position: relative; }
+#map{ position:absolute; inset:0; }
+
+.leaflet-popup-content-wrapper{ border-radius: var(--radius-m); font-family: var(--font-ui); }
+.popup{ min-width: 200px; }
+.popup h3{ margin: 0 0 4px; font-family: var(--font-display); font-size: 16px; color: var(--teal-dark); }
+.popup p{ margin: 0 0 8px; font-size: 12.5px; }
+.popup .btn{ font-size: 12px; padding: 6px 10px; }
+.popup__actions{ display:flex; gap:6px; flex-wrap: wrap; }
+
+.user-dot{
+  width: 16px; height: 16px; border-radius: 50%; background: #2E86F5;
+  border: 3px solid white; box-shadow: 0 0 0 4px rgba(46,134,245,.25);
+}
+.marker-pin{
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 5px rgba(0,0,0,.3);
+  border: 2px solid white;
+}
+.marker-pin span{ transform: rotate(45deg); font-size: 13px; }
+.marker-pin--orphan{ background: var(--teal); }
+.marker-pin--association{ background: var(--clay); }
+
+/* ============================== MODALS ============================== */
+.modal{ position: fixed; inset:0; z-index: 100; display:flex; align-items:center; justify-content:center; padding: 16px; }
+.modal[hidden]{ display:none; }
+.modal__backdrop{ position:absolute; inset:0; background: rgba(35,35,28,.45); }
+.modal__card{
+  position: relative; background: var(--paper); border-radius: var(--radius-l);
+  max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto;
+  padding: 26px; box-shadow: 0 20px 50px rgba(0,0,0,.25);
+}
+.modal__card--narrow{ max-width: 340px; text-align: center; }
+.modal__close{
+  position: absolute; inset-inline-end: 14px; top: 12px; background: none; border: none;
+  font-size: 26px; line-height: 1; cursor: pointer; color: var(--ink-soft);
+}
+.modal__header{ display:flex; align-items:center; gap: 12px; margin-bottom: 10px; }
+.modal__photo{ width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: var(--teal-tint); }
+.modal__target-name{ margin:0; font-weight: 600; color: var(--ink-soft); font-size: 14px; }
+.modal__needs{
+  font-size: 13px; background: var(--teal-tint); color: var(--teal-dark); border-radius: var(--radius-s);
+  padding: 8px 10px; margin-bottom: 16px;
+}
+
+.field{ display:block; margin-bottom: 14px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
+.field span{ display:block; margin-bottom: 5px; }
+.field input, .field textarea{
+  width: 100%; border: 1px solid var(--line); border-radius: var(--radius-s); padding: 9px 11px;
+  font-size: 14px; background: var(--white); font-weight: 400; color: var(--ink);
+}
+.field input:focus, .field textarea:focus{ outline: 2px solid var(--teal); outline-offset: 1px; }
+
+.amount-row{ display:flex; align-items:center; gap:6px; }
+.amount-row input{ flex: 1 1 60px; min-width: 0; }
+.chip{
+  border: 1px solid var(--line); background: var(--white); border-radius: 20px; padding: 8px 12px;
+  font-size: 13px; font-weight: 700; cursor:pointer; color: var(--teal-dark);
+}
+.chip.active{ background: var(--teal); color: var(--white); border-color: var(--teal); }
+.currency{ font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+
+.donate-success{ text-align:center; padding: 10px 0; color: var(--teal-dark); }
+.donate-success svg{ margin-bottom: 10px; }
+
+.qr-sub{ color: var(--ink-soft); font-size: 13.5px; margin-top: -6px; }
+.qr-image{ width: 220px; height: 220px; margin: 16px auto; display:block; border: 1px solid var(--line); border-radius: var(--radius-s); background: white; padding: 8px; }
+.qr-hint{ font-size: 12.5px; }
+
+/* ============================== RESPONSIVE ============================== */
+@media (max-width: 860px){
+  .radius-control{ display:none; }
+  .topbar{ gap: 8px; padding: 0 12px; }
+  .mobile-only{ display:inline-flex; }
+
+  .layout{ position: relative; flex-direction: column; }
+  .map-wrap{ height: 100%; }
+  .panel{
+    position: absolute; inset-inline-start: 0; top:0; width: 100%; height: 100%;
+    transform: translateY(100%); transition: transform .25s ease; z-index: 15;
+    border-inline-end: none; border-top: 1px solid var(--line);
+  }
+  .panel.open{ transform: translateY(0); }
+}
+
+@media (max-width: 480px){
+  .brand-name{ display:none; }
+  .lang-btn{ padding: 7px 8px; }
+}
+
+/* RTL adjustments */
+html[dir="rtl"] .marker-pin{ transform: rotate(45deg); }
+html[dir="rtl"] .marker-pin span{ transform: rotate(-45deg); }

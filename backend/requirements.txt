@@ -1,0 +1,9 @@
+# Unpinned so pip resolves versions that have prebuilt wheels for your
+# Python version. This matters on Python 3.13/3.14, where older pinned
+# pydantic releases have no wheel and try to compile Rust from source.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic>=2.12
+qrcode[pil]>=7.4
+python-multipart>=0.0.9
