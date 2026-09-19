@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -52,6 +53,8 @@
 
     <!-- -------- SIDE PANEL -------- -->
     <section class="panel" id="sidePanel">
+      <div class="panel__drag" id="panelDrag" aria-hidden="true"><span></span></div>
+
       <div class="panel__intro">
         <h1 data-i18n="hero_title">Give where it reaches someone real.</h1>
         <p data-i18n="hero_sub">See the orphans and associations closest to you, follow the map to them, or donate right now.</p>
@@ -62,6 +65,20 @@
         <button class="tab" data-target="association" role="tab" aria-selected="false" data-i18n="tab_associations">Associations</button>
       </div>
 
+      <div class="filter-row">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="search" id="searchInput" data-i18n-placeholder="search_placeholder" placeholder="Search by name or city" />
+        </div>
+        <select id="sortSelect" class="sort-select">
+          <option value="distance" data-i18n="sort_distance">Nearest first</option>
+          <option value="need" data-i18n="sort_need">Most in need</option>
+          <option value="name" data-i18n="sort_name">Name (A–Z)</option>
+        </select>
+      </div>
+
+      <div id="resultCount" class="result-count"></div>
+
       <div id="statusMsg" class="status-msg" hidden></div>
 
       <div id="listOrphans" class="card-list"></div>
@@ -71,6 +88,15 @@
     <!-- -------- MAP -------- -->
     <section class="map-wrap">
       <div id="map"></div>
+
+      <div class="map-legend" id="mapLegend">
+        <span><i class="legend-dot legend-dot--orphan"></i><span data-i18n="tab_orphans">Orphans</span></span>
+        <span><i class="legend-dot legend-dot--association"></i><span data-i18n="tab_associations">Associations</span></span>
+      </div>
+
+      <button id="recenterFab" class="map-fab" type="button" aria-label="Recenter">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 100 8 4 4 0 000-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
     </section>
 
   </main>
@@ -142,11 +168,15 @@
     <p class="qr-sub" id="qrTargetName"></p>
     <img id="qrImage" class="qr-image" alt="QR code" />
     <p class="qr-hint" data-i18n="qr_hint">Anyone can scan this to open the donation form directly for this recipient — print it on a flyer or display it at your front desk.</p>
-    <a id="qrDownload" class="btn btn--ghost btn--block" download data-i18n="download_qr">Download QR code</a>
+    <div class="qr-actions">
+      <a id="qrDownload" class="btn btn--ghost" download data-i18n="download_qr">Download QR code</a>
+      <button id="qrShare" class="btn btn--primary" type="button" data-i18n="share_qr" hidden>Share</button>
+    </div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="js/app.js" type="module"></script>
 </body>
 </html>

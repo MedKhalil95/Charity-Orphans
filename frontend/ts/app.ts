@@ -51,12 +51,16 @@ let translations: Record<string, string> = {};
 
 let userPos: { lat: number; lng: number } | null = null;
 let map: any;
+let clusterGroup: any;
 let markers: any[] = [];
 let userMarker: any = null;
 
 let orphans: OrphanDTO[] = [];
 let associations: AssociationDTO[] = [];
 let activeTab: TargetType = "orphan";
+let searchQuery = "";
+let sortMode: "distance" | "need" | "name" = "distance";
+let sheetState: "peek" | "open" = "peek";
 
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
 
@@ -95,6 +99,7 @@ async function setLang(lang: Lang): Promise<void> {
   localStorage.setItem("rahma_lang", lang);
   await loadTranslations(lang);
   applyTranslations();
+  setSheetState(sheetState); // re-sync label text (the generic i18n pass just overwrote it)
   // Re-render dynamic content that embeds translated strings
   renderList();
   updateStatusMessage();
@@ -187,10 +192,16 @@ function placeUserMarker(): void {
 // -----------------------------------------------------------------------
 function initMap(): void {
   map = L.map("map", { zoomControl: true }).setView([FALLBACK_CENTER.lat, FALLBACK_CENTER.lng], 12);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors",
-    maxZoom: 19,
+  // CartoDB Voyager — a warmer, more legible basemap than stock OSM tiles.
+  // Free, no API key required.
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+    maxZoom: 20,
+    subdomains: "abcd",
   }).addTo(map);
+
+  clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, spiderfyOnMaxZoom: true });
+  map.addLayer(clusterGroup);
 }
 
 function pinIcon(kind: TargetType): any {
@@ -205,18 +216,18 @@ function pinIcon(kind: TargetType): any {
 }
 
 function clearMarkers(): void {
-  markers.forEach((m) => m.remove());
+  clusterGroup.clearLayers();
   markers = [];
 }
 
 function renderMarkers(): void {
   clearMarkers();
-  const items: Array<OrphanDTO | AssociationDTO> = activeTab === "orphan" ? orphans : associations;
+  const items: Array<OrphanDTO | AssociationDTO> = activeTab === "orphan" ? getFilteredOrphans() : getFilteredAssociations();
 
   items.forEach((item) => {
     const isOrphan = activeTab === "orphan";
     const name = isOrphan ? (item as OrphanDTO).first_name : (item as AssociationDTO).name;
-    const marker = L.marker([item.latitude, item.longitude], { icon: pinIcon(activeTab) }).addTo(map);
+    const marker = L.marker([item.latitude, item.longitude], { icon: pinIcon(activeTab) });
 
     const popupHtml = `
       <div class="popup">
@@ -234,6 +245,7 @@ function renderMarkers(): void {
     marker.on("popupopen", bindPopupActions);
     (marker as any)._rahmaId = item.id;
     markers.push(marker);
+    clusterGroup.addLayer(marker);
   });
 }
 
@@ -246,8 +258,12 @@ function bindPopupActions(): void {
 function focusMarker(id: number): void {
   const marker = markers.find((m) => (m as any)._rahmaId === id);
   if (marker) {
-    map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
-    marker.openPopup();
+    if (clusterGroup.zoomToShowLayer) {
+      clusterGroup.zoomToShowLayer(marker, () => marker.openPopup());
+    } else {
+      map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
+      marker.openPopup();
+    }
   }
 }
 
@@ -260,19 +276,61 @@ function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+function getFilteredOrphans(): OrphanDTO[] {
+  let list = orphans;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter((o) => o.first_name.toLowerCase().includes(q) || o.city.toLowerCase().includes(q));
+  }
+  list = [...list];
+  if (sortMode === "name") {
+    list.sort((a, b) => a.first_name.localeCompare(b.first_name));
+  } else if (sortMode === "need") {
+    list.sort((a, b) => {
+      const pctA = a.monthly_goal > 0 ? a.amount_raised / a.monthly_goal : 1;
+      const pctB = b.monthly_goal > 0 ? b.amount_raised / b.monthly_goal : 1;
+      return pctA - pctB;
+    });
+  }
+  // "distance" mode: keep the backend's distance-sorted order as-is.
+  return list;
+}
+
+function getFilteredAssociations(): AssociationDTO[] {
+  let list = associations;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter((a) => a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q));
+  }
+  list = [...list];
+  if (sortMode === "name") {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return list;
+}
+
 function renderList(): void {
   renderOrphanList();
   renderAssociationList();
   renderMarkers();
+  updateResultCount();
+}
+
+function updateResultCount(): void {
+  const el = document.getElementById("resultCount")!;
+  const count = activeTab === "orphan" ? getFilteredOrphans().length : getFilteredAssociations().length;
+  const label = t(activeTab === "orphan" ? "tab_orphans" : "tab_associations");
+  el.textContent = `${count} ${label.toLowerCase()}`;
 }
 
 function renderOrphanList(): void {
   const el = document.getElementById("listOrphans")!;
-  if (orphans.length === 0) {
+  const list = getFilteredOrphans();
+  if (list.length === 0) {
     el.innerHTML = `<div class="status-msg">${t("no_results")}</div>`;
     return;
   }
-  el.innerHTML = orphans
+  el.innerHTML = list
     .map((o) => {
       const pct = o.monthly_goal > 0 ? Math.min(100, Math.round((o.amount_raised / o.monthly_goal) * 100)) : 0;
       const photo = o.photo_url || placeholderAvatar(o.first_name);
@@ -300,11 +358,12 @@ function renderOrphanList(): void {
 
 function renderAssociationList(): void {
   const el = document.getElementById("listAssociations")!;
-  if (associations.length === 0) {
+  const list = getFilteredAssociations();
+  if (list.length === 0) {
     el.innerHTML = `<div class="status-msg">${t("no_results")}</div>`;
     return;
   }
-  el.innerHTML = associations
+  el.innerHTML = list
     .map((a) => {
       const photo = a.logo_url || placeholderAvatar(a.name);
       return `
@@ -430,8 +489,41 @@ function openQrModal(type: TargetType, id: number): void {
   const imgUrl = `${API_BASE}/qr/${type}/${id}`;
   (document.getElementById("qrImage") as HTMLImageElement).src = imgUrl;
   (document.getElementById("qrDownload") as HTMLAnchorElement).href = imgUrl;
+  (document.getElementById("qrDownload") as HTMLAnchorElement).download = `rahma-qr-${type}-${id}.png`;
+
+  const shareBtn = document.getElementById("qrShare") as HTMLButtonElement;
+  shareBtn.hidden = !(navigator as any).share;
+  shareBtn.dataset.type = type;
+  shareBtn.dataset.id = String(id);
+  shareBtn.dataset.name = name;
 
   document.getElementById("qrModal")!.hidden = false;
+}
+
+async function shareQr(type: TargetType, id: number, name: string): Promise<void> {
+  const imgUrl = `${window.location.origin}${API_BASE}/qr/${type}/${id}`;
+  const linkUrl = `${window.location.origin}/?donate=${type}&id=${id}`;
+  const nav = navigator as any;
+
+  try {
+    const resp = await fetch(imgUrl);
+    const blob = await resp.blob();
+    const file = new File([blob], `rahma-qr-${type}-${id}.png`, { type: "image/png" });
+    if (nav.canShare && nav.canShare({ files: [file] })) {
+      await nav.share({ files: [file], title: name, text: name });
+      return;
+    }
+  } catch {
+    /* fall through to link share below */
+  }
+
+  if (nav.share) {
+    try {
+      await nav.share({ title: name, url: linkUrl });
+    } catch {
+      /* user cancelled — no action needed */
+    }
+  }
 }
 
 function closeModals(): void {
@@ -468,6 +560,61 @@ function handleDeepLink(): void {
 }
 
 // -----------------------------------------------------------------------
+// Mobile bottom sheet (drag handle + tap-to-toggle)
+// -----------------------------------------------------------------------
+function setSheetState(state: "peek" | "open"): void {
+  sheetState = state;
+  const panel = document.getElementById("sidePanel")!;
+  panel.classList.toggle("open", state === "open");
+  const toggleBtn = document.getElementById("mobileListToggle")!;
+  toggleBtn.textContent = state === "open" ? t("show_map") : t("show_list");
+}
+
+function wireBottomSheet(): void {
+  const panel = document.getElementById("sidePanel")!;
+  const handle = document.getElementById("panelDrag")!;
+  let startY = 0;
+  let peekPx = 0;
+  let dragging = false;
+
+  const onPointerDown = (e: PointerEvent) => {
+    startY = e.clientY;
+    peekPx = panel.offsetHeight - 112;
+    dragging = true;
+    panel.classList.add("dragging");
+    handle.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: PointerEvent) => {
+    if (!dragging) return;
+    const delta = e.clientY - startY;
+    const base = sheetState === "open" ? 0 : peekPx;
+    const next = Math.min(peekPx, Math.max(0, base + delta));
+    panel.style.transform = `translateY(${next}px)`;
+  };
+
+  const onPointerUp = (e: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove("dragging");
+    panel.style.transform = "";
+    const totalDelta = e.clientY - startY;
+    if (Math.abs(totalDelta) < 6) {
+      setSheetState(sheetState === "open" ? "peek" : "open");
+    } else {
+      const base = sheetState === "open" ? 0 : peekPx;
+      const finalPx = Math.min(peekPx, Math.max(0, base + totalDelta));
+      setSheetState(finalPx < peekPx / 2 ? "open" : "peek");
+    }
+  };
+
+  handle.addEventListener("pointerdown", onPointerDown);
+  handle.addEventListener("pointermove", onPointerMove);
+  handle.addEventListener("pointerup", onPointerUp);
+  handle.addEventListener("pointercancel", onPointerUp);
+}
+
+// -----------------------------------------------------------------------
 // Wiring
 // -----------------------------------------------------------------------
 function wireEvents(): void {
@@ -485,6 +632,7 @@ function wireEvents(): void {
       document.getElementById("listOrphans")!.hidden = activeTab !== "orphan";
       document.getElementById("listAssociations")!.hidden = activeTab !== "association";
       renderMarkers();
+      updateResultCount();
     });
   });
 
@@ -494,12 +642,39 @@ function wireEvents(): void {
   });
   radiusRange.addEventListener("change", refreshData);
 
+  const searchInput = document.getElementById("searchInput") as HTMLInputElement;
+  searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value.trim();
+    renderList();
+  });
+
+  const sortSelect = document.getElementById("sortSelect") as HTMLSelectElement;
+  sortSelect.addEventListener("change", () => {
+    sortMode = sortSelect.value as typeof sortMode;
+    renderList();
+  });
+
+  document.getElementById("recenterFab")!.addEventListener("click", () => {
+    if (userPos) {
+      map.flyTo([userPos.lat, userPos.lng], 15);
+    } else {
+      locateUser();
+    }
+  });
+
+  wireBottomSheet();
+
   document.getElementById("mobileListToggle")!.addEventListener("click", () => {
-    document.getElementById("sidePanel")!.classList.toggle("open");
+    setSheetState(sheetState === "open" ? "peek" : "open");
   });
 
   document.querySelectorAll<HTMLElement>("[data-close]").forEach((el) => {
     el.addEventListener("click", closeModals);
+  });
+
+  document.getElementById("qrShare")!.addEventListener("click", (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    shareQr(btn.dataset.type as TargetType, Number(btn.dataset.id), btn.dataset.name || "");
   });
 
   document.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
@@ -542,6 +717,7 @@ async function boot(): Promise<void> {
   wireEvents();
   await loadTranslations(currentLang);
   applyTranslations();
+  setSheetState(sheetState);
   document.querySelectorAll<HTMLButtonElement>(".lang-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });

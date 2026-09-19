@@ -11,11 +11,15 @@ let currentLang = localStorage.getItem("rahma_lang") || "en";
 let translations = {};
 let userPos = null;
 let map;
+let clusterGroup;
 let markers = [];
 let userMarker = null;
 let orphans = [];
 let associations = [];
 let activeTab = "orphan";
+let searchQuery = "";
+let sortMode = "distance";
+let sheetState = "peek";
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
 // -----------------------------------------------------------------------
 // i18n
@@ -47,6 +51,7 @@ async function setLang(lang) {
     localStorage.setItem("rahma_lang", lang);
     await loadTranslations(lang);
     applyTranslations();
+    setSheetState(sheetState); // re-sync label text (the generic i18n pass just overwrote it)
     // Re-render dynamic content that embeds translated strings
     renderList();
     updateStatusMessage();
@@ -129,10 +134,15 @@ function placeUserMarker() {
 // -----------------------------------------------------------------------
 function initMap() {
     map = L.map("map", { zoomControl: true }).setView([FALLBACK_CENTER.lat, FALLBACK_CENTER.lng], 12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
+    // CartoDB Voyager — a warmer, more legible basemap than stock OSM tiles.
+    // Free, no API key required.
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+        maxZoom: 20,
+        subdomains: "abcd",
     }).addTo(map);
+    clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, spiderfyOnMaxZoom: true });
+    map.addLayer(clusterGroup);
 }
 function pinIcon(kind) {
     const label = kind === "orphan" ? "❤" : "🏠";
@@ -145,16 +155,16 @@ function pinIcon(kind) {
     });
 }
 function clearMarkers() {
-    markers.forEach((m) => m.remove());
+    clusterGroup.clearLayers();
     markers = [];
 }
 function renderMarkers() {
     clearMarkers();
-    const items = activeTab === "orphan" ? orphans : associations;
+    const items = activeTab === "orphan" ? getFilteredOrphans() : getFilteredAssociations();
     items.forEach((item) => {
         const isOrphan = activeTab === "orphan";
         const name = isOrphan ? item.first_name : item.name;
-        const marker = L.marker([item.latitude, item.longitude], { icon: pinIcon(activeTab) }).addTo(map);
+        const marker = L.marker([item.latitude, item.longitude], { icon: pinIcon(activeTab) });
         const popupHtml = `
       <div class="popup">
         <h3>${escapeHtml(name)}</h3>
@@ -169,6 +179,7 @@ function renderMarkers() {
         marker.on("popupopen", bindPopupActions);
         marker._rahmaId = item.id;
         markers.push(marker);
+        clusterGroup.addLayer(marker);
     });
 }
 function bindPopupActions() {
@@ -179,8 +190,13 @@ function bindPopupActions() {
 function focusMarker(id) {
     const marker = markers.find((m) => m._rahmaId === id);
     if (marker) {
-        map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
-        marker.openPopup();
+        if (clusterGroup.zoomToShowLayer) {
+            clusterGroup.zoomToShowLayer(marker, () => marker.openPopup());
+        }
+        else {
+            map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
+            marker.openPopup();
+        }
     }
 }
 // -----------------------------------------------------------------------
@@ -191,18 +207,58 @@ function escapeHtml(str) {
     div.textContent = str ?? "";
     return div.innerHTML;
 }
+function getFilteredOrphans() {
+    let list = orphans;
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter((o) => o.first_name.toLowerCase().includes(q) || o.city.toLowerCase().includes(q));
+    }
+    list = [...list];
+    if (sortMode === "name") {
+        list.sort((a, b) => a.first_name.localeCompare(b.first_name));
+    }
+    else if (sortMode === "need") {
+        list.sort((a, b) => {
+            const pctA = a.monthly_goal > 0 ? a.amount_raised / a.monthly_goal : 1;
+            const pctB = b.monthly_goal > 0 ? b.amount_raised / b.monthly_goal : 1;
+            return pctA - pctB;
+        });
+    }
+    // "distance" mode: keep the backend's distance-sorted order as-is.
+    return list;
+}
+function getFilteredAssociations() {
+    let list = associations;
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter((a) => a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q));
+    }
+    list = [...list];
+    if (sortMode === "name") {
+        list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return list;
+}
 function renderList() {
     renderOrphanList();
     renderAssociationList();
     renderMarkers();
+    updateResultCount();
+}
+function updateResultCount() {
+    const el = document.getElementById("resultCount");
+    const count = activeTab === "orphan" ? getFilteredOrphans().length : getFilteredAssociations().length;
+    const label = t(activeTab === "orphan" ? "tab_orphans" : "tab_associations");
+    el.textContent = `${count} ${label.toLowerCase()}`;
 }
 function renderOrphanList() {
     const el = document.getElementById("listOrphans");
-    if (orphans.length === 0) {
+    const list = getFilteredOrphans();
+    if (list.length === 0) {
         el.innerHTML = `<div class="status-msg">${t("no_results")}</div>`;
         return;
     }
-    el.innerHTML = orphans
+    el.innerHTML = list
         .map((o) => {
         const pct = o.monthly_goal > 0 ? Math.min(100, Math.round((o.amount_raised / o.monthly_goal) * 100)) : 0;
         const photo = o.photo_url || placeholderAvatar(o.first_name);
@@ -229,11 +285,12 @@ function renderOrphanList() {
 }
 function renderAssociationList() {
     const el = document.getElementById("listAssociations");
-    if (associations.length === 0) {
+    const list = getFilteredAssociations();
+    if (list.length === 0) {
         el.innerHTML = `<div class="status-msg">${t("no_results")}</div>`;
         return;
     }
-    el.innerHTML = associations
+    el.innerHTML = list
         .map((a) => {
         const photo = a.logo_url || placeholderAvatar(a.name);
         return `
@@ -352,7 +409,38 @@ function openQrModal(type, id) {
     const imgUrl = `${API_BASE}/qr/${type}/${id}`;
     document.getElementById("qrImage").src = imgUrl;
     document.getElementById("qrDownload").href = imgUrl;
+    document.getElementById("qrDownload").download = `rahma-qr-${type}-${id}.png`;
+    const shareBtn = document.getElementById("qrShare");
+    shareBtn.hidden = !navigator.share;
+    shareBtn.dataset.type = type;
+    shareBtn.dataset.id = String(id);
+    shareBtn.dataset.name = name;
     document.getElementById("qrModal").hidden = false;
+}
+async function shareQr(type, id, name) {
+    const imgUrl = `${window.location.origin}${API_BASE}/qr/${type}/${id}`;
+    const linkUrl = `${window.location.origin}/?donate=${type}&id=${id}`;
+    const nav = navigator;
+    try {
+        const resp = await fetch(imgUrl);
+        const blob = await resp.blob();
+        const file = new File([blob], `rahma-qr-${type}-${id}.png`, { type: "image/png" });
+        if (nav.canShare && nav.canShare({ files: [file] })) {
+            await nav.share({ files: [file], title: name, text: name });
+            return;
+        }
+    }
+    catch {
+        /* fall through to link share below */
+    }
+    if (nav.share) {
+        try {
+            await nav.share({ title: name, url: linkUrl });
+        }
+        catch {
+            /* user cancelled — no action needed */
+        }
+    }
 }
 function closeModals() {
     document.getElementById("donateModal").hidden = true;
@@ -386,6 +474,58 @@ function handleDeepLink() {
     }
 }
 // -----------------------------------------------------------------------
+// Mobile bottom sheet (drag handle + tap-to-toggle)
+// -----------------------------------------------------------------------
+function setSheetState(state) {
+    sheetState = state;
+    const panel = document.getElementById("sidePanel");
+    panel.classList.toggle("open", state === "open");
+    const toggleBtn = document.getElementById("mobileListToggle");
+    toggleBtn.textContent = state === "open" ? t("show_map") : t("show_list");
+}
+function wireBottomSheet() {
+    const panel = document.getElementById("sidePanel");
+    const handle = document.getElementById("panelDrag");
+    let startY = 0;
+    let peekPx = 0;
+    let dragging = false;
+    const onPointerDown = (e) => {
+        startY = e.clientY;
+        peekPx = panel.offsetHeight - 112;
+        dragging = true;
+        panel.classList.add("dragging");
+        handle.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e) => {
+        if (!dragging)
+            return;
+        const delta = e.clientY - startY;
+        const base = sheetState === "open" ? 0 : peekPx;
+        const next = Math.min(peekPx, Math.max(0, base + delta));
+        panel.style.transform = `translateY(${next}px)`;
+    };
+    const onPointerUp = (e) => {
+        if (!dragging)
+            return;
+        dragging = false;
+        panel.classList.remove("dragging");
+        panel.style.transform = "";
+        const totalDelta = e.clientY - startY;
+        if (Math.abs(totalDelta) < 6) {
+            setSheetState(sheetState === "open" ? "peek" : "open");
+        }
+        else {
+            const base = sheetState === "open" ? 0 : peekPx;
+            const finalPx = Math.min(peekPx, Math.max(0, base + totalDelta));
+            setSheetState(finalPx < peekPx / 2 ? "open" : "peek");
+        }
+    };
+    handle.addEventListener("pointerdown", onPointerDown);
+    handle.addEventListener("pointermove", onPointerMove);
+    handle.addEventListener("pointerup", onPointerUp);
+    handle.addEventListener("pointercancel", onPointerUp);
+}
+// -----------------------------------------------------------------------
 // Wiring
 // -----------------------------------------------------------------------
 function wireEvents() {
@@ -401,6 +541,7 @@ function wireEvents() {
             document.getElementById("listOrphans").hidden = activeTab !== "orphan";
             document.getElementById("listAssociations").hidden = activeTab !== "association";
             renderMarkers();
+            updateResultCount();
         });
     });
     const radiusRange = document.getElementById("radiusRange");
@@ -408,11 +549,34 @@ function wireEvents() {
         document.getElementById("radiusValue").textContent = `${radiusRange.value} km`;
     });
     radiusRange.addEventListener("change", refreshData);
+    const searchInput = document.getElementById("searchInput");
+    searchInput.addEventListener("input", () => {
+        searchQuery = searchInput.value.trim();
+        renderList();
+    });
+    const sortSelect = document.getElementById("sortSelect");
+    sortSelect.addEventListener("change", () => {
+        sortMode = sortSelect.value;
+        renderList();
+    });
+    document.getElementById("recenterFab").addEventListener("click", () => {
+        if (userPos) {
+            map.flyTo([userPos.lat, userPos.lng], 15);
+        }
+        else {
+            locateUser();
+        }
+    });
+    wireBottomSheet();
     document.getElementById("mobileListToggle").addEventListener("click", () => {
-        document.getElementById("sidePanel").classList.toggle("open");
+        setSheetState(sheetState === "open" ? "peek" : "open");
     });
     document.querySelectorAll("[data-close]").forEach((el) => {
         el.addEventListener("click", closeModals);
+    });
+    document.getElementById("qrShare").addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        shareQr(btn.dataset.type, Number(btn.dataset.id), btn.dataset.name || "");
     });
     document.querySelectorAll(".chip").forEach((chip) => {
         chip.addEventListener("click", () => {
@@ -453,6 +617,7 @@ async function boot() {
     wireEvents();
     await loadTranslations(currentLang);
     applyTranslations();
+    setSheetState(sheetState);
     document.querySelectorAll(".lang-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.lang === currentLang);
     });
