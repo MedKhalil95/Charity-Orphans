@@ -200,7 +200,20 @@ function initMap(): void {
     subdomains: "abcd",
   }).addTo(map);
 
-  clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, spiderfyOnMaxZoom: true });
+  // Clustering is a nice-to-have: if the plugin CDN is slow/blocked, fall
+  // back to a plain layer group so a single script failure can't take the
+  // whole app down. clearLayers/addLayer exist on both, so nothing else
+  // in the code needs to know which one it got.
+  try {
+    if (typeof L.markerClusterGroup === "function") {
+      clusterGroup = L.markerClusterGroup({ maxClusterRadius: 48, spiderfyOnMaxZoom: true });
+    } else {
+      throw new Error("markercluster plugin not available");
+    }
+  } catch (err) {
+    console.warn("Marker clustering unavailable, falling back to plain markers:", err);
+    clusterGroup = L.layerGroup();
+  }
   map.addLayer(clusterGroup);
 }
 
@@ -713,15 +726,47 @@ function wireEvents(): void {
 // Boot
 // -----------------------------------------------------------------------
 async function boot(): Promise<void> {
-  initMap();
-  wireEvents();
-  await loadTranslations(currentLang);
+  try {
+    initMap();
+  } catch (err) {
+    // If Leaflet itself failed to load (CDN blocked/offline), show a clear
+    // message instead of a silently blank map area.
+    console.error("Map failed to initialize:", err);
+    const mapEl = document.getElementById("map");
+    if (mapEl) {
+      mapEl.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;color:#5B5A4E;font-family:sans-serif;">Map failed to load — check your internet connection and reload the page.</div>';
+    }
+  }
+
+  try {
+    wireEvents();
+  } catch (err) {
+    console.error("Failed wiring UI events:", err);
+  }
+
+  try {
+    await loadTranslations(currentLang);
+  } catch (err) {
+    console.error("Failed loading translations, falling back to raw keys:", err);
+  }
   applyTranslations();
   setSheetState(sheetState);
   document.querySelectorAll<HTMLButtonElement>(".lang-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });
-  await refreshData();
+
+  try {
+    await refreshData();
+  } catch (err) {
+    console.error("Failed loading orphans/associations:", err);
+    const statusEl = document.getElementById("statusMsg");
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Could not load data from the server. Check that the backend is running and reload.";
+    }
+  }
+
   locateUser();
   handleDeepLink();
 }
