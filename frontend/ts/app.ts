@@ -192,12 +192,17 @@ function placeUserMarker(): void {
 // -----------------------------------------------------------------------
 function initMap(): void {
   map = L.map("map", { zoomControl: true }).setView([FALLBACK_CENTER.lat, FALLBACK_CENTER.lng], 12);
-  // CartoDB Voyager — a warmer, more legible basemap than stock OSM tiles.
-  // Free, no API key required.
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    maxZoom: 20,
-    subdomains: "abcd",
+  // Standard OpenStreetMap raster tiles. Free, no API key, no account,
+  // no billing ever required — this is the most widely-used no-key map
+  // tile source there is. (Leaflet itself is also fully free/open-source;
+  // nothing in this app talks to any paid Google Maps API. The only
+  // Google reference anywhere is the "Directions" button, which just
+  // opens the free, public google.com/maps website in a new tab —
+  // that also never requires a key.)
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19,
+    subdomains: "abc",
   }).addTo(map);
 
   // Clustering is a nice-to-have: if the plugin CDN is slow/blocked, fall
