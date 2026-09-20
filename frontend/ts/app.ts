@@ -60,7 +60,7 @@ let associations: AssociationDTO[] = [];
 let activeTab: TargetType = "orphan";
 let searchQuery = "";
 let sortMode: "distance" | "need" | "name" = "distance";
-let sheetState: "peek" | "open" = "peek";
+let mobileView: "map" | "list" = "map";
 
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
 
@@ -99,7 +99,7 @@ async function setLang(lang: Lang): Promise<void> {
   localStorage.setItem("rahma_lang", lang);
   await loadTranslations(lang);
   applyTranslations();
-  setSheetState(sheetState); // re-sync label text (the generic i18n pass just overwrote it)
+  setMobileView(mobileView); // re-sync label text (the generic i18n pass just overwrote it)
   // Re-render dynamic content that embeds translated strings
   renderList();
   updateStatusMessage();
@@ -419,6 +419,7 @@ function bindCardEvents(container: HTMLElement): void {
     card.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest("[data-action]")) return;
       focusMarker(Number(card.dataset.id));
+      if (isMobileWidth()) setMobileView("map");
     });
   });
   container.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((btn) => {
@@ -573,59 +574,22 @@ function handleDeepLink(): void {
 }
 
 // -----------------------------------------------------------------------
-// Mobile bottom sheet (drag handle + tap-to-toggle)
+// Mobile view toggle: map and list are two full-screen views, never both
+// visible together — tapping the button hard-switches between them.
 // -----------------------------------------------------------------------
-function setSheetState(state: "peek" | "open"): void {
-  sheetState = state;
-  const panel = document.getElementById("sidePanel")!;
-  panel.classList.toggle("open", state === "open");
+function setMobileView(view: "map" | "list"): void {
+  mobileView = view;
+  document.querySelector(".layout")!.classList.toggle("show-list", view === "list");
   const toggleBtn = document.getElementById("mobileListToggle")!;
-  toggleBtn.textContent = state === "open" ? t("show_map") : t("show_list");
+  toggleBtn.textContent = view === "list" ? t("show_map") : t("show_list");
+  if (view === "map") {
+    // Leaflet needs a nudge after its container was hidden (display:none)
+    // and becomes visible again, or tiles render blank/mis-sized.
+    setTimeout(() => map && map.invalidateSize(), 60);
+  }
 }
 
-function wireBottomSheet(): void {
-  const panel = document.getElementById("sidePanel")!;
-  const handle = document.getElementById("panelDrag")!;
-  let startY = 0;
-  let peekPx = 0;
-  let dragging = false;
-
-  const onPointerDown = (e: PointerEvent) => {
-    startY = e.clientY;
-    peekPx = panel.offsetHeight - 112;
-    dragging = true;
-    panel.classList.add("dragging");
-    handle.setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: PointerEvent) => {
-    if (!dragging) return;
-    const delta = e.clientY - startY;
-    const base = sheetState === "open" ? 0 : peekPx;
-    const next = Math.min(peekPx, Math.max(0, base + delta));
-    panel.style.transform = `translateY(${next}px)`;
-  };
-
-  const onPointerUp = (e: PointerEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    panel.classList.remove("dragging");
-    panel.style.transform = "";
-    const totalDelta = e.clientY - startY;
-    if (Math.abs(totalDelta) < 6) {
-      setSheetState(sheetState === "open" ? "peek" : "open");
-    } else {
-      const base = sheetState === "open" ? 0 : peekPx;
-      const finalPx = Math.min(peekPx, Math.max(0, base + totalDelta));
-      setSheetState(finalPx < peekPx / 2 ? "open" : "peek");
-    }
-  };
-
-  handle.addEventListener("pointerdown", onPointerDown);
-  handle.addEventListener("pointermove", onPointerMove);
-  handle.addEventListener("pointerup", onPointerUp);
-  handle.addEventListener("pointercancel", onPointerUp);
-}
+const isMobileWidth = () => window.matchMedia("(max-width: 860px)").matches;
 
 // -----------------------------------------------------------------------
 // Wiring
@@ -675,10 +639,8 @@ function wireEvents(): void {
     }
   });
 
-  wireBottomSheet();
-
   document.getElementById("mobileListToggle")!.addEventListener("click", () => {
-    setSheetState(sheetState === "open" ? "peek" : "open");
+    setMobileView(mobileView === "list" ? "map" : "list");
   });
 
   document.querySelectorAll<HTMLElement>("[data-close]").forEach((el) => {
@@ -751,7 +713,7 @@ async function boot(): Promise<void> {
     console.error("Failed loading translations, falling back to raw keys:", err);
   }
   applyTranslations();
-  setSheetState(sheetState);
+  setMobileView(mobileView);
   document.querySelectorAll<HTMLButtonElement>(".lang-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });

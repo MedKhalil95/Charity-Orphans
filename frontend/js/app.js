@@ -19,7 +19,7 @@ let associations = [];
 let activeTab = "orphan";
 let searchQuery = "";
 let sortMode = "distance";
-let sheetState = "peek";
+let mobileView = "map";
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
 // -----------------------------------------------------------------------
 // i18n
@@ -51,7 +51,7 @@ async function setLang(lang) {
     localStorage.setItem("rahma_lang", lang);
     await loadTranslations(lang);
     applyTranslations();
-    setSheetState(sheetState); // re-sync label text (the generic i18n pass just overwrote it)
+    setMobileView(mobileView); // re-sync label text (the generic i18n pass just overwrote it)
     // Re-render dynamic content that embeds translated strings
     renderList();
     updateStatusMessage();
@@ -348,6 +348,8 @@ function bindCardEvents(container) {
             if (e.target.closest("[data-action]"))
                 return;
             focusMarker(Number(card.dataset.id));
+            if (isMobileWidth())
+                setMobileView("map");
         });
     });
     container.querySelectorAll("[data-action]").forEach((btn) => {
@@ -489,57 +491,21 @@ function handleDeepLink() {
     }
 }
 // -----------------------------------------------------------------------
-// Mobile bottom sheet (drag handle + tap-to-toggle)
+// Mobile view toggle: map and list are two full-screen views, never both
+// visible together — tapping the button hard-switches between them.
 // -----------------------------------------------------------------------
-function setSheetState(state) {
-    sheetState = state;
-    const panel = document.getElementById("sidePanel");
-    panel.classList.toggle("open", state === "open");
+function setMobileView(view) {
+    mobileView = view;
+    document.querySelector(".layout").classList.toggle("show-list", view === "list");
     const toggleBtn = document.getElementById("mobileListToggle");
-    toggleBtn.textContent = state === "open" ? t("show_map") : t("show_list");
+    toggleBtn.textContent = view === "list" ? t("show_map") : t("show_list");
+    if (view === "map") {
+        // Leaflet needs a nudge after its container was hidden (display:none)
+        // and becomes visible again, or tiles render blank/mis-sized.
+        setTimeout(() => map && map.invalidateSize(), 60);
+    }
 }
-function wireBottomSheet() {
-    const panel = document.getElementById("sidePanel");
-    const handle = document.getElementById("panelDrag");
-    let startY = 0;
-    let peekPx = 0;
-    let dragging = false;
-    const onPointerDown = (e) => {
-        startY = e.clientY;
-        peekPx = panel.offsetHeight - 112;
-        dragging = true;
-        panel.classList.add("dragging");
-        handle.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e) => {
-        if (!dragging)
-            return;
-        const delta = e.clientY - startY;
-        const base = sheetState === "open" ? 0 : peekPx;
-        const next = Math.min(peekPx, Math.max(0, base + delta));
-        panel.style.transform = `translateY(${next}px)`;
-    };
-    const onPointerUp = (e) => {
-        if (!dragging)
-            return;
-        dragging = false;
-        panel.classList.remove("dragging");
-        panel.style.transform = "";
-        const totalDelta = e.clientY - startY;
-        if (Math.abs(totalDelta) < 6) {
-            setSheetState(sheetState === "open" ? "peek" : "open");
-        }
-        else {
-            const base = sheetState === "open" ? 0 : peekPx;
-            const finalPx = Math.min(peekPx, Math.max(0, base + totalDelta));
-            setSheetState(finalPx < peekPx / 2 ? "open" : "peek");
-        }
-    };
-    handle.addEventListener("pointerdown", onPointerDown);
-    handle.addEventListener("pointermove", onPointerMove);
-    handle.addEventListener("pointerup", onPointerUp);
-    handle.addEventListener("pointercancel", onPointerUp);
-}
+const isMobileWidth = () => window.matchMedia("(max-width: 860px)").matches;
 // -----------------------------------------------------------------------
 // Wiring
 // -----------------------------------------------------------------------
@@ -582,9 +548,8 @@ function wireEvents() {
             locateUser();
         }
     });
-    wireBottomSheet();
     document.getElementById("mobileListToggle").addEventListener("click", () => {
-        setSheetState(sheetState === "open" ? "peek" : "open");
+        setMobileView(mobileView === "list" ? "map" : "list");
     });
     document.querySelectorAll("[data-close]").forEach((el) => {
         el.addEventListener("click", closeModals);
@@ -654,7 +619,7 @@ async function boot() {
         console.error("Failed loading translations, falling back to raw keys:", err);
     }
     applyTranslations();
-    setSheetState(sheetState);
+    setMobileView(mobileView);
     document.querySelectorAll(".lang-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.lang === currentLang);
     });
