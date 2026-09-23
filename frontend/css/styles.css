@@ -31,6 +31,13 @@
 
 *{ box-sizing: border-box; }
 html,body{ height:100%; }
+
+/* The `hidden` attribute must always win over a class's `display` value —
+   without this, any element that both has a class setting display:flex/grid
+   and gets toggled via `.hidden = true` in JS stays visibly on screen,
+   because author CSS specificity ties resolve in the class's favor. This
+   is what caused the orphans/associations lists to show simultaneously. */
+[hidden]{ display: none !important; }
 body{
   margin:0;
   background: var(--sand);
