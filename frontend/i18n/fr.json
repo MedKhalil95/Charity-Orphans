@@ -15,6 +15,8 @@
   "sort_distance": "Plus proche d'abord",
   "sort_need": "Besoin le plus urgent",
   "sort_name": "Nom (A–Z)",
+  "filter_need_only": "Nécessite encore un soutien",
+  "filter_verified_only": "Associations vérifiées uniquement",
   "share_qr": "Partager",
   "donate_btn": "Faire un don",
   "qr_btn": "QR",

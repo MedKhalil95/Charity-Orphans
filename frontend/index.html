@@ -11,7 +11,7 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-<link rel="stylesheet" href="css/styles.css?v=5" />
+<link rel="stylesheet" href="css/styles.css?v=6" />
 </head>
 <body>
 
@@ -27,12 +27,6 @@
     </div>
 
     <div class="topbar__controls">
-      <div class="radius-control">
-        <label for="radiusRange" data-i18n="radius_label">Search radius</label>
-        <input type="range" id="radiusRange" min="1" max="50" value="15" />
-        <output id="radiusValue">15 km</output>
-      </div>
-
       <button id="locateBtn" class="btn btn--ghost" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 100 8 4 4 0 000-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         <span data-i18n="locate_me">Locate me</span>
@@ -63,16 +57,36 @@
         <button class="tab" data-target="association" role="tab" aria-selected="false" data-i18n="tab_associations">Associations</button>
       </div>
 
-      <div class="filter-row">
-        <div class="search-box">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <input type="search" id="searchInput" data-i18n-placeholder="search_placeholder" placeholder="Search by name or city" />
+      <div class="filters">
+        <div class="filter-item">
+          <div class="filter-item__head">
+            <label for="radiusRange" data-i18n="radius_label">Search radius</label>
+            <output id="radiusValue">15 km</output>
+          </div>
+          <input type="range" id="radiusRange" min="1" max="50" value="15" />
         </div>
-        <select id="sortSelect" class="sort-select">
-          <option value="distance" data-i18n="sort_distance">Nearest first</option>
-          <option value="need" data-i18n="sort_need">Most in need</option>
-          <option value="name" data-i18n="sort_name">Name (A–Z)</option>
-        </select>
+
+        <div class="filter-row">
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="search" id="searchInput" data-i18n-placeholder="search_placeholder" placeholder="Search by name or city" />
+          </div>
+          <select id="sortSelect" class="sort-select">
+            <option value="distance" data-i18n="sort_distance">Nearest first</option>
+            <option value="need" data-i18n="sort_need">Most in need</option>
+            <option value="name" data-i18n="sort_name">Name (A–Z)</option>
+          </select>
+        </div>
+
+        <label class="filter-toggle" id="needFilterWrap">
+          <input type="checkbox" id="needOnlyToggle" />
+          <span data-i18n="filter_need_only">Still needs support</span>
+        </label>
+
+        <label class="filter-toggle" id="verifiedFilterWrap" hidden>
+          <input type="checkbox" id="verifiedOnlyToggle" />
+          <span data-i18n="filter_verified_only">Verified associations only</span>
+        </label>
       </div>
 
       <div id="resultCount" class="result-count"></div>
@@ -175,6 +189,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="js/app.js?v=5" type="module"></script>
+<script src="js/app.js?v=6" type="module"></script>
 </body>
 </html>

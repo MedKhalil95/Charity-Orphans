@@ -19,6 +19,8 @@ let associations = [];
 let activeTab = "orphan";
 let searchQuery = "";
 let sortMode = "distance";
+let needOnlyFilter = false;
+let verifiedOnlyFilter = false;
 let mobileView = "map";
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
 // -----------------------------------------------------------------------
@@ -233,6 +235,9 @@ function getFilteredOrphans() {
         const q = searchQuery.toLowerCase();
         list = list.filter((o) => o.first_name.toLowerCase().includes(q) || o.city.toLowerCase().includes(q));
     }
+    if (needOnlyFilter) {
+        list = list.filter((o) => o.monthly_goal > 0 && o.amount_raised < o.monthly_goal);
+    }
     list = [...list];
     if (sortMode === "name") {
         list.sort((a, b) => a.first_name.localeCompare(b.first_name));
@@ -252,6 +257,9 @@ function getFilteredAssociations() {
     if (searchQuery) {
         const q = searchQuery.toLowerCase();
         list = list.filter((a) => a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q));
+    }
+    if (verifiedOnlyFilter) {
+        list = list.filter((a) => a.verified);
     }
     list = [...list];
     if (sortMode === "name") {
@@ -526,6 +534,8 @@ function wireEvents() {
             activeTab = tabBtn.dataset.target;
             document.getElementById("listOrphans").hidden = activeTab !== "orphan";
             document.getElementById("listAssociations").hidden = activeTab !== "association";
+            document.getElementById("needFilterWrap").hidden = activeTab !== "orphan";
+            document.getElementById("verifiedFilterWrap").hidden = activeTab !== "association";
             renderMarkers();
             updateResultCount();
         });
@@ -543,6 +553,14 @@ function wireEvents() {
     const sortSelect = document.getElementById("sortSelect");
     sortSelect.addEventListener("change", () => {
         sortMode = sortSelect.value;
+        renderList();
+    });
+    document.getElementById("needOnlyToggle").addEventListener("change", (e) => {
+        needOnlyFilter = e.currentTarget.checked;
+        renderList();
+    });
+    document.getElementById("verifiedOnlyToggle").addEventListener("change", (e) => {
+        verifiedOnlyFilter = e.currentTarget.checked;
         renderList();
     });
     document.getElementById("recenterFab").addEventListener("click", () => {

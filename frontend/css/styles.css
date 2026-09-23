@@ -84,9 +84,19 @@ button, input, textarea{ font-family: inherit; color: inherit; }
 
 .topbar__controls{ display:flex; align-items:center; gap: 20px; flex: 1 1 auto; justify-content: flex-end; }
 
-.radius-control{ display:flex; align-items:center; gap:8px; font-size: 13px; color: var(--ink-soft); }
-.radius-control input[type="range"]{ width: 120px; accent-color: var(--teal); }
-#radiusValue{ min-width: 46px; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }
+.filters{ display:flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+
+.filter-item{ display:flex; flex-direction: column; gap: 4px; }
+.filter-item__head{ display:flex; align-items:center; justify-content: space-between; font-size: 13px; color: var(--ink-soft); }
+.filter-item__head label{ font-weight: 600; }
+.filter-item input[type="range"]{ width: 100%; accent-color: var(--teal); }
+#radiusValue{ min-width: 46px; text-align: end; font-variant-numeric: tabular-nums; color: var(--teal-dark); font-weight: 700; }
+
+.filter-toggle{
+  display:flex; align-items:center; gap: 8px; font-size: 13px; color: var(--ink-soft); cursor: pointer;
+  background: var(--sand); border-radius: var(--radius-s); padding: 9px 11px;
+}
+.filter-toggle input[type="checkbox"]{ width: 16px; height: 16px; accent-color: var(--teal); flex: 0 0 auto; }
 
 .lang-switch{ display:flex; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
 .lang-btn{
@@ -296,7 +306,7 @@ button, input, textarea{ font-family: inherit; color: inherit; }
 }
 
 @media (max-width: 860px){
-  .radius-control{ display:none; }
+  .filters{ gap: 8px; }
   .topbar{ gap: 8px; padding: 0 12px; padding-inline-start: max(12px, env(safe-area-inset-left)); padding-inline-end: max(12px, env(safe-area-inset-right)); }
   .mobile-only{ display:inline-flex; }
   .map-legend{ font-size: 11px; padding: 6px 9px; gap: 10px; }

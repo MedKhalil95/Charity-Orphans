@@ -60,6 +60,8 @@ let associations: AssociationDTO[] = [];
 let activeTab: TargetType = "orphan";
 let searchQuery = "";
 let sortMode: "distance" | "need" | "name" = "distance";
+let needOnlyFilter = false;
+let verifiedOnlyFilter = false;
 let mobileView: "map" | "list" = "map";
 
 const FALLBACK_CENTER = { lat: 36.8065, lng: 10.1815 }; // Tunis
@@ -300,6 +302,9 @@ function getFilteredOrphans(): OrphanDTO[] {
     const q = searchQuery.toLowerCase();
     list = list.filter((o) => o.first_name.toLowerCase().includes(q) || o.city.toLowerCase().includes(q));
   }
+  if (needOnlyFilter) {
+    list = list.filter((o) => o.monthly_goal > 0 && o.amount_raised < o.monthly_goal);
+  }
   list = [...list];
   if (sortMode === "name") {
     list.sort((a, b) => a.first_name.localeCompare(b.first_name));
@@ -319,6 +324,9 @@ function getFilteredAssociations(): AssociationDTO[] {
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     list = list.filter((a) => a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q));
+  }
+  if (verifiedOnlyFilter) {
+    list = list.filter((a) => a.verified);
   }
   list = [...list];
   if (sortMode === "name") {
@@ -613,6 +621,8 @@ function wireEvents(): void {
       activeTab = tabBtn.dataset.target as TargetType;
       document.getElementById("listOrphans")!.hidden = activeTab !== "orphan";
       document.getElementById("listAssociations")!.hidden = activeTab !== "association";
+      document.getElementById("needFilterWrap")!.hidden = activeTab !== "orphan";
+      document.getElementById("verifiedFilterWrap")!.hidden = activeTab !== "association";
       renderMarkers();
       updateResultCount();
     });
@@ -633,6 +643,16 @@ function wireEvents(): void {
   const sortSelect = document.getElementById("sortSelect") as HTMLSelectElement;
   sortSelect.addEventListener("change", () => {
     sortMode = sortSelect.value as typeof sortMode;
+    renderList();
+  });
+
+  (document.getElementById("needOnlyToggle") as HTMLInputElement).addEventListener("change", (e) => {
+    needOnlyFilter = (e.currentTarget as HTMLInputElement).checked;
+    renderList();
+  });
+
+  (document.getElementById("verifiedOnlyToggle") as HTMLInputElement).addEventListener("change", (e) => {
+    verifiedOnlyFilter = (e.currentTarget as HTMLInputElement).checked;
     renderList();
   });
 
